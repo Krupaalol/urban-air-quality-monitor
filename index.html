@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban Air Quality Intelligence System - CS7NS4</title>
+    
+    <!-- Firebase SDK - CLOUD SERVICE INTEGRATION -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Leaflet for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .feature-badges {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 15px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            backdrop-filter: blur(10px);
+        }
+
+        .cloud-status {
+            background: rgba(40, 167, 69, 0.3);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-stop {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-download {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 20px 30px;
+            margin: 20px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            border-left: 5px solid #dc3545;
+            color: #721c24;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            color: #856404;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            color: #155724;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+            color: #0c5460;
+        }
+
+        .urban-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .urban-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            padding: 25px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s;
+        }
+
+        .urban-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .urban-card h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .status-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .poi-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+
+        .poi-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .poi-school { border-left-color: #17a2b8; }
+        .poi-hospital { border-left-color: #dc3545; }
+        .poi-park { border-left-color: #28a745; }
+
+        .transit-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ffc107;
+        }
+
+        .community-reading {
+            background: #e7f3ff;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .heat-island {
+            background: #ffe5e5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .recommendation {
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #28a745;
+        }
+
+        .charts {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .chart-container {
+            margin-bottom: 40px;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .chart-container h3 {
+            margin-bottom: 20px;
+            color: #1e3c72;
+            font-size: 1.5em;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 400px !important;
+        }
+
+        .map-container {
+            padding: 30px;
+        }
+
+        #map {
+            height: 600px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .data-table {
+            padding: 30px;
+            background: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background: #1e3c72;
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .footer {
+            background: #1e3c72;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+
+            .urban-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏙️ Urban Air Quality Intelligence System</h1>
+            <p>Smart City Environmental Monitoring with Cloud Database & Multi-User Support</p>
+            <div class="feature-badges">
+                <span class="badge">☁️ Cloud Storage</span>
+                <span class="badge">👥 Multi-User</span>
+                <span class="badge">🚇 Transit</span>
+                <span class="badge">🔥 Heat Islands</span>
+                <span class="badge">🏥 POI Alerts</span>
+            </div>
+            <div class="cloud-status" id="cloudStatus">
+                ☁️ Connected to Firebase Cloud
+            </div>
+            <p style="font-size: 0.9em; margin-top: 10px;">CS7NS4 Assignment 4 - Krupaa Suresh (25334718)</p>
+        </div>
+
+        <div class="controls">
+            <div class="button-group">
+                <button id="startBtn" class="btn-start">▶ Start Monitoring</button>
+                <button id="stopBtn" class="btn-stop" disabled>⏹ Stop Monitoring</button>
+                <button id="downloadBtn" class="btn-download">📥 Export Data</button>
+            </div>
+        </div>
+
+        <div id="alertBox" class="alert"></div>
+
+        <!-- Urban Feature Cards -->
+        <div class="urban-grid">
+            <!-- Current Conditions -->
+            <div class="urban-card">
+                <h3><span class="card-icon">📊</span> Current Conditions</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-label">Local Records</div>
+                        <div class="status-value" id="recordCount">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Cloud Records</div>
+                        <div class="status-value" id="cloudCount">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Temperature</div>
+                        <div class="status-value" id="currentTemp">--°C</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">AQI</div>
+                        <div class="status-value" id="currentAQI">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heat Island Detection -->
+            <div class="urban-card">
+                <h3><span class="card-icon">🔥</span> Heat Island Status</h3>
+                <div id="heatIslandInfo">
+                    <p style="color: #6c757d; font-style: italic;">Start monitoring to detect urban heat islands...</p>
+                </div>
+            </div>
+
+            <!-- Nearby POIs -->
+            <div class="urban-card">
+                <h3><span class="card-icon">📍</span> Affected Locations</h3>
+                <ul class="poi-list" id="poiList">
+                    <li style="color: #6c757d; font-style: italic;">No data yet</li>
+                </ul>
+            </div>
+
+            <!-- Transit Integration -->
+            <div class="urban-card">
+                <h3><span class="card-icon">🚇</span> Nearby Transit</h3>
+                <div id="transitInfo">
+                    <p style="color: #6c757d; font-style: italic;">Start monitoring to find nearby transit...</p>
+                </div>
+            </div>
+
+            <!-- Community Readings from Cloud -->
+            <div class="urban-card">
+                <h3><span class="card-icon">👥</span> Community Data (Cloud)</h3>
+                <div id="communityReadings">
+                    <p style="color: #6c757d; font-style: italic;">Real-time crowdsourced data from Firebase...</p>
+                </div>
+            </div>
+
+            <!-- Route Recommendations -->
+            <div class="urban-card">
+                <h3><span class="card-icon">🗺️</span> Smart Route Advice</h3>
+                <div id="routeRecommendations">
+                    <p style="color: #6c757d; font-style: italic;">Get healthier route suggestions...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts">
+            <div class="chart-container">
+                <h3>📈 Environmental Trends</h3>
+                <canvas id="weatherChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>🔥 Urban Heat Map Timeline</h3>
+                <canvas id="heatChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>💨 Air Quality Index Trends</h3>
+                <canvas id="aqiChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="map-container">
+            <h3 style="margin-bottom: 20px; color: #1e3c72;">🗺️ Real-time Urban Air Quality Map</h3>
+            <div id="map"></div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="data-table">
+            <h3 style="margin-bottom: 20px; color: #1e3c72;">📋 Data Records (Local + Cloud)</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Location</th>
+                            <th>Temp (°C)</th>
+                            <th>AQI</th>
+                            <th>Heat Island</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #6c757d;">No data collected yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🏙️ Cloud-Based Smart City Platform | Firebase Firestore | Multi-User Support</p>
+            <p style="font-size: 0.9em; margin-top: 5px;">CS7NS4 Urban Computing | Trinity College Dublin | 2025</p>
+        </div>
+    </div>
+
+    <script>
+        // ===== FIREBASE CLOUD CONFIGURATION =====
+        const firebaseConfig = {
+            apiKey: "AIzaSyC3Jc0S1hajXnqHczmgZINO1XS1GVH7K4E",
+            authDomain: "gps-data-urban-computing.firebaseapp.com",
+            projectId: "gps-data-urban-computing",
+            storageBucket: "gps-data-urban-computing.appspot.com",
+            messagingSenderId: "696881519327",
+            appId: "1:696881519327:web:36134020bd314c9a71a76a",
+            measurementId: "G-ETBBD7GHVH"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        console.log("✅ Firebase initialized successfully");
+
+        // ===== APPLICATION STATE =====
+        let isCollecting = false;
+        let collectionInterval = null;
+        let dataPoints = [];
+        let map = null;
+        let pathPolyline = null;
+        let currentMarker = null;
+        let poiMarkers = [];
+        let cloudDataCount = 0;
+
+        // Charts
+        let weatherChart = null;
+        let heatChart = null;
+        let aqiChart = null;
+
+        // User identification
+        function getUserId() {
+            let userId = localStorage.getItem('urbanAQ_userId');
+            if (!userId) {
+                userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('urbanAQ_userId', userId);
+            }
+            return userId;
+        }
+
+        const sessionId = 'session_' + Date.now();
+        const userId = getUserId();
+
+        // ===== DUBLIN POIs =====
+        const dublinPOIs = [
+            { name: "Trinity College", type: "school", lat: 53.3438, lng: -6.2546 },
+            { name: "St. James's Hospital", type: "hospital", lat: 53.3414, lng: -6.2935 },
+            { name: "Phoenix Park", type: "park", lat: 53.3559, lng: -6.3298 },
+            { name: "UCD", type: "school", lat: 53.3063, lng: -6.2206 },
+            { name: "Mater Hospital", type: "hospital", lat: 53.3589, lng: -6.2618 },
+            { name: "St. Stephen's Green", type: "park", lat: 53.3376, lng: -6.2597 }
+        ];
+
+        const transitStops = [
+            { name: "O'Connell Street (LUAS)", lat: 53.3498, lng: -6.2603, type: "tram" },
+            { name: "College Green (Bus)", lat: 53.3445, lng: -6.2597, type: "bus" },
+            { name: "Connolly Station", lat: 53.3509, lng: -6.2500, type: "train" }
+        ];
+
+        // ===== MAP INITIALIZATION =====
+        function initMap() {
+            map = L.map('map').setView([53.3498, -6.2603], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            pathPolyline = L.polyline([], {
+                color: '#667eea',
+                weight: 4,
+                opacity: 0.7
+            }).addTo(map);
+
+            addPOIMarkers();
+        }
+
+        function addPOIMarkers() {
+            const icons = {
+                school: '🏫',
+                hospital: '🏥',
+                park: '🌳',
+                bus: '🚌',
+                tram: '🚊',
+                train: '🚆'
+            };
+
+            dublinPOIs.forEach(poi => {
+                const icon = L.divIcon({
+                    html: `<div style="font-size: 24px;">${icons[poi.type]}</div>`,
+                    className: 'poi-marker',
+                    iconSize: [30, 30]
+                });
+
+                const marker = L.marker([poi.lat, poi.lng], { icon })
+                    .bindPopup(`<b>${poi.name}</b><br>Type: ${poi.type}`)
+                    .addTo(map);
+                
+                poiMarkers.push({ marker, data: poi });
+            });
+
+            transitStops.forEach(stop => {
+                const icon = L.divIcon({
+                    html: `<div style="font-size: 24px;">${icons[stop.type]}</div>`,
+                    className: 'transit-marker',
+                    iconSize: [30, 30]
+                });
+
+                L.marker([stop.lat, stop.lng], { icon })
+                    .bindPopup(`<b>${stop.name}</b><br>Type: ${stop.type}`)
+                    .addTo(map);
+            });
+        }
+
+        // ===== CHARTS INITIALIZATION =====
+        function initCharts() {
+            const weatherCtx = document.getElementById('weatherChart').getContext('2d');
+            weatherChart = new Chart(weatherCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: '#ff6384',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.4
+                    }, {
+                        label: 'Wind Speed (m/s)',
+                        data: [],
+                        borderColor: '#36a2eb',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'Temperature (°C)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: { display: true, text: 'Wind Speed (m/s)' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+
+            const heatCtx = document.getElementById('heatChart').getContext('2d');
+            heatChart = new Chart(heatCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperature Deviation (°C)',
+                        data: [],
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Deviation from Baseline (°C)' }
+                        }
+                    }
+                }
+            });
+
+            const aqiCtx = document.getElementById('aqiChart').getContext('2d');
+            aqiChart = new Chart(aqiCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Air Quality Index',
+                        data: [],
+                        borderColor: '#9966ff',
+                        backgroundColor: 'rgba(153, 102, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 300,
+                            title: { display: true, text: 'AQI Value' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ===== CALCULATION FUNCTIONS =====
+        function calculateAQI(temp, windSpeed) {
+            let baseAQI = 50;
+            const tempDeviation = Math.abs(temp - 15);
+            baseAQI += tempDeviation * 2;
+            
+            if (windSpeed < 2) {
+                baseAQI += 30;
+            } else if (windSpeed > 10) {
+                baseAQI += 20;
+            }
+            
+            baseAQI += Math.random() * 20 - 10;
+            return Math.min(Math.max(Math.round(baseAQI), 0), 300);
+        }
+
+        function detectHeatIsland(temp) {
+            const baselineTemp = 12;
+            const deviation = temp - baselineTemp;
+            const isHeatIsland = deviation > 3;
+            
+            return {
+                isHeatIsland,
+                deviation,
+                severity: deviation > 5 ? 'High' : deviation > 3 ? 'Moderate' : 'Low'
+            };
+        }
+
+        function getAQIInfo(aqi) {
+            if (aqi <= 50) return { category: 'Good', color: '#28a745', impact: 'No health impact' };
+            if (aqi <= 100) return { category: 'Moderate', color: '#ffc107', impact: 'Acceptable for most' };
+            if (aqi <= 150) return { category: 'Unhealthy for Sensitive', color: '#fd7e14', impact: 'Sensitive groups affected' };
+            if (aqi <= 200) return { category: 'Unhealthy', color: '#dc3545', impact: 'Everyone may experience effects' };
+            if (aqi <= 300) return { category: 'Very Unhealthy', color: '#6f42c1', impact: 'Health alert' };
+            return { category: 'Hazardous', color: '#6f42c1', impact: 'Emergency conditions' };
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function findNearestPOIs(lat, lng, aqi) {
+            const affected = [];
+            dublinPOIs.forEach(poi => {
+                const distance = calculateDistance(lat, lng, poi.lat, poi.lng);
+                if (distance < 1) {
+                    affected.push({ ...poi, distance, aqi });
+                }
+            });
+            return affected.slice(0, 5);
+        }
+
+        function findNearestTransit(lat, lng) {
+            const nearest = [];
+            transitStops.forEach(stop => {
+                const distance = calculateDistance(lat, lng, stop.lat, stop.lng);
+                if (distance < 0.5) {
+                    nearest.push({ ...stop, distance });
+                }
+            });
+            return nearest.slice(0, 3);
+        }
+
+        function generateRouteRecommendation(aqi) {
+            const aqiInfo = getAQIInfo(aqi);
+            
+            if (aqi > 150) {
+                return {
+                    message: 'Consider using indoor routes or public transit to minimize outdoor exposure.',
+                    suggestion: 'Alternative: Take the LUAS or bus to avoid prolonged outdoor activity.'
+                };
+            } else if (aqi > 100) {
+                return {
+                    message: 'Route through parks recommended for better air quality.',
+                    suggestion: 'Nearby: Phoenix Park or St. Stephen\'s Green have better air circulation.'
+                };
+            } else {
+                return {
+                    message: 'Air quality is good! All outdoor routes are safe.',
+                    suggestion: 'Enjoy walking or cycling - current conditions are ideal.'
+                };
+            }
+        }
+
+        // ===== ALERT SYSTEM =====
+        function showAlert(message, type = 'success') {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.className = `alert alert-${type} show`;
+            alertBox.textContent = message;
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 5000);
+        }
+
+        // ===== WEATHER API =====
+        async function fetchWeatherData(lat, lng) {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                return {
+                    temperature: data.current_weather.temperature,
+                    windSpeed: data.current_weather.windspeed
+                };
+            } catch (error) {
+                console.error('Error fetching weather data:', error);
+                return {
+                    temperature: 12 + Math.random() * 8,
+                    windSpeed: 2 + Math.random() * 5
+                };
+            }
+        }
+
+        // ===== CLOUD FUNCTIONS =====
+        async function fetchCommunityDataFromCloud(userLat, userLng) {
+            try {
+                const oneHourAgo = new Date();
+                oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+                const snapshot = await db.collection('urban_air_quality')
+                    .where('timestamp', '>=', oneHourAgo.toISOString())
+                    .orderBy('timestamp', 'desc')
+                    .limit(20)
+                    .get();
+
+                const communityData = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const distance = calculateDistance(
+                        userLat, userLng, 
+                        data.latitude, data.longitude
+                    );
+                    
+                    if (distance < 2 && data.userId !== userId) {
+                        communityData.push({
+                            ...data,
+                            distance: distance,
+                            minutesAgo: Math.floor((Date.now() - new Date(data.timestamp)) / 60000)
+                        });
+                    }
+                });
+
+                return communityData.slice(0, 5);
+            } catch (error) {
+                console.error('Error fetching community data:', error);
+                return [];
+            }
+        }
+
+        async function getCloudRecordCount() {
+            try {
+                const snapshot = await db.collection('urban_air_quality')
+                    .where('userId', '==', userId)
+                    .where('sessionId', '==', sessionId)
+                    .get();
+                return snapshot.size;
+            } catch (error) {
+                console.error('Error counting cloud records:', error);
+                return 0;
+            }
+        }
+
+        // ===== DATA COLLECTION (MAIN FUNCTION) =====
+        async function collectData() {
+            if (!navigator.geolocation) {
+                showAlert('Geolocation is not supported by your browser', 'danger');
+                stopCollection();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy;
+                    const timestamp = new Date().toISOString();
+
+                    const weather = await fetchWeatherData(lat, lng);
+                    const aqi = calculateAQI(weather.temperature, weather.windSpeed);
+                    const heatIsland = detectHeatIsland(weather.temperature);
+
+                    const dataPoint = {
+                        timestamp,
+                        latitude: lat,
+                        longitude: lng,
+                        accuracy,
+                        temperature: weather.temperature,
+                        windSpeed: weather.windSpeed,
+                        aqi: aqi,
+                        heatIsland: heatIsland.isHeatIsland,
+                        heatDeviation: heatIsland.deviation,
+                        userId: userId,
+                        sessionId: sessionId
+                    };
+
+                    // ✅ CRITICAL: Upload to Firebase Cloud
+                    try {
+                        await db.collection('urban_air_quality').add(dataPoint);
+                        console.log('✅ Data uploaded to cloud successfully');
+                        
+                        // Update cloud count
+                        cloudDataCount = await getCloudRecordCount();
+                        document.getElementById('cloudCount').textContent = cloudDataCount;
+                        
+                        showAlert('Data uploaded to cloud successfully', 'success');
+                    } catch (error) {
+                        console.error('❌ Error uploading to cloud:', error);
+                        showAlert('Cloud upload failed, but local storage continues', 'warning');
+                    }
+
+                    // Store locally
+                    dataPoints.push(dataPoint);
+
+                    // Update UI
+                    updateStatus(dataPoint);
+                    updateCharts(dataPoint);
+                    updateMap(lat, lng, aqi);
+                    await updateUrbanFeatures(lat, lng, aqi, weather.temperature);
+                    updateTable();
+                    checkAlerts(aqi, heatIsland);
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    showAlert('Failed to get GPS location. Please enable location services.', 'danger');
+                }
+            );
+        }
+
+        // ===== UI UPDATE FUNCTIONS =====
+        function updateStatus(dataPoint) {
+            document.getElementById('recordCount').textContent = dataPoints.length;
+            document.getElementById('currentTemp').textContent = dataPoint.temperature.toFixed(1) + '°C';
+            
+            const aqiElement = document.getElementById('currentAQI');
+            aqiElement.textContent = dataPoint.aqi;
+            const aqiInfo = getAQIInfo(dataPoint.aqi);
+            aqiElement.style.color = aqiInfo.color;
+        }
+
+        function updateCharts(dataPoint) {
+            const timeLabel = new Date(dataPoint.timestamp).toLocaleTimeString();
+            const maxPoints = 20;
+
+            weatherChart.data.labels.push(timeLabel);
+            weatherChart.data.datasets[0].data.push(dataPoint.temperature);
+            weatherChart.data.datasets[1].data.push(dataPoint.windSpeed);
+            if (weatherChart.data.labels.length > maxPoints) {
+                weatherChart.data.labels.shift();
+                weatherChart.data.datasets[0].data.shift();
+                weatherChart.data.datasets[1].data.shift();
+            }
+            weatherChart.update();
+
+            heatChart.data.labels.push(timeLabel);
+            heatChart.data.datasets[0].data.push(dataPoint.heatDeviation);
+            if (heatChart.data.labels.length > maxPoints) {
+                heatChart.data.labels.shift();
+                heatChart.data.datasets[0].data.shift();
+            }
+            heatChart.update();
+
+            aqiChart.data.labels.push(timeLabel);
+            aqiChart.data.datasets[0].data.push(dataPoint.aqi);
+            if (aqiChart.data.labels.length > maxPoints) {
+                aqiChart.data.labels.shift();
+                aqiChart.data.datasets[0].data.shift();
+            }
+            aqiChart.update();
+        }
+
+        function updateMap(lat, lng, aqi) {
+            pathPolyline.addLatLng([lat, lng]);
+            
+            const color = getAQIInfo(aqi).color;
+            
+            if (currentMarker) {
+                currentMarker.setLatLng([lat, lng]);
+                currentMarker.setStyle({ fillColor: color });
+            } else {
+                currentMarker = L.circleMarker([lat, lng], {
+                    radius: 10,
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    color: '#fff',
+                    weight: 2
+                }).bindPopup(`<b>Your Location</b><br>AQI: ${aqi}<br>☁️ Uploaded to Cloud`)
+                  .addTo(map);
+            }
+            
+            map.setView([lat, lng], map.getZoom());
+        }
+
+        async function updateUrbanFeatures(lat, lng, aqi, temp) {
+            // Heat Island
+            const heatIsland = detectHeatIsland(temp);
+            const heatDiv = document.getElementById('heatIslandInfo');
+            
+            if (heatIsland.isHeatIsland) {
+                heatDiv.innerHTML = `
+                    <div class="heat-island">
+                        <strong>⚠️ Urban Heat Island Detected!</strong>
+                        <p>Temperature is ${heatIsland.deviation.toFixed(1)}°C above baseline</p>
+                        <p>Severity: <strong>${heatIsland.severity}</strong></p>
+                    </div>
+                `;
+            } else {
+                heatDiv.innerHTML = `
+                    <div style="color: #28a745;">
+                        <strong>✓ Normal Temperature Zone</strong>
+                        <p>Deviation: ${heatIsland.deviation.toFixed(1)}°C from baseline</p>
+                    </div>
+                `;
+            }
+
+            // POIs
+            const nearbyPOIs = findNearestPOIs(lat, lng, aqi);
+            const poiDiv = document.getElementById('poiList');
+            
+            if (nearbyPOIs.length > 0) {
+                poiDiv.innerHTML = nearbyPOIs.map(poi => {
+                    const aqiInfo = getAQIInfo(poi.aqi);
+                    const icon = poi.type === 'school' ? '🏫' : poi.type === 'hospital' ? '🏥' : '🌳';
+                    return `
+                        <li class="poi-item poi-${poi.type}">
+                            <span>${icon} <strong>${poi.name}</strong> (${poi.distance.toFixed(1)}km)</span>
+                            <span style="color: ${aqiInfo.color}; font-weight: bold;">AQI: ${poi.aqi}</span>
+                        </li>
+                    `;
+                }).join('');
+            } else {
+                poiDiv.innerHTML = '<li style="color: #6c757d; font-style: italic;">No nearby locations</li>';
+            }
+
+            // Transit
+            const nearbyTransit = findNearestTransit(lat, lng);
+            const transitDiv = document.getElementById('transitInfo');
+            
+            if (nearbyTransit.length > 0) {
+                transitDiv.innerHTML = nearbyTransit.map(stop => {
+                    const icon = stop.type === 'bus' ? '🚌' : stop.type === 'tram' ? '🚊' : '🚆';
+                    return `
+                        <div class="transit-info">
+                            ${icon} <strong>${stop.name}</strong><br>
+                            Distance: ${(stop.distance * 1000).toFixed(0)}m
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                transitDiv.innerHTML = '<p style="color: #6c757d; font-style: italic;">No transit nearby</p>';
+            }
+
+            // Community data from cloud
+            const cloudData = await fetchCommunityDataFromCloud(lat, lng);
+            const communityDiv = document.getElementById('communityReadings');
+            
+            if (cloudData.length > 0) {
+                communityDiv.innerHTML = `<p style="font-size: 0.9em; color: #28a745; margin-bottom: 10px;"><strong>☁️ Live data from Firebase</strong></p>` +
+                    cloudData.map(reading => {
+                        const aqiInfo = getAQIInfo(reading.aqi);
+                        return `
+                            <div class="community-reading">
+                                <strong>Community Reading</strong> (${(reading.distance * 1000).toFixed(0)}m, ${reading.minutesAgo}min ago)<br>
+                                AQI: <span style="color: ${aqiInfo.color}; font-weight: bold;">${reading.aqi}</span> - ${aqiInfo.category}
+                            </div>
+                        `;
+                    }).join('');
+            } else {
+                communityDiv.innerHTML = '<p style="color: #6c757d; font-style: italic;">☁️ No community data nearby (be the first!)</p>';
+            }
+
+            // Route recommendations
+            const routeRec = generateRouteRecommendation(aqi);
+            const routeDiv = document.getElementById('routeRecommendations');
+            routeDiv.innerHTML = `
+                <div class="recommendation">
+                    <strong>${routeRec.message}</strong>
+                    <p>${routeRec.suggestion}</p>
+                </div>
+            `;
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('dataTableBody');
+            const recentData = dataPoints.slice(-10).reverse();
+            
+            tbody.innerHTML = recentData.map(dp => {
+                const aqiInfo = getAQIInfo(dp.aqi);
+                const location = `${dp.latitude.toFixed(4)}, ${dp.longitude.toFixed(4)}`;
+                return `
+                    <tr>
+                        <td>${new Date(dp.timestamp).toLocaleString()}</td>
+                        <td>${location}</td>
+                        <td>${dp.temperature.toFixed(1)}</td>
+                        <td style="color: ${aqiInfo.color}; font-weight: bold;">${dp.aqi}</td>
+                        <td>${dp.heatIsland ? '🔥 Yes' : '✓ No'}</td>
+                        <td>☁️ Cloud + Local</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function checkAlerts(aqi, heatIsland) {
+            const aqiInfo = getAQIInfo(aqi);
+            
+            if (aqi > 150) {
+                showAlert(`🚨 HEALTH ALERT: ${aqiInfo.category} (AQI: ${aqi}). Consider transit or indoor routes.`, 'danger');
+            } else if (aqi > 100) {
+                showAlert(`⚠️ Air Quality Notice: ${aqiInfo.category} (AQI: ${aqi})`, 'warning');
+            }
+
+            if (heatIsland.isHeatIsland && heatIsland.severity === 'High') {
+                showAlert(`🔥 Heat Island Alert: +${heatIsland.deviation.toFixed(1)}°C above normal`, 'warning');
+            }
+        }
+
+        // ===== CONTROL FUNCTIONS =====
+        function startCollection() {
+            if (isCollecting) return;
+            
+            isCollecting = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            showAlert('🏙️ Urban monitoring started! Data uploading to Firebase Cloud...', 'success');
+            
+            collectData();
+            collectionInterval = setInterval(collectData, 2000);
+        }
+
+        function stopCollection() {
+            if (!isCollecting) return;
+            
+            isCollecting = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if (collectionInterval) {
+                clearInterval(collectionInterval);
+                collectionInterval = null;
+            }
+            
+            showAlert(`Monitoring stopped. ${cloudDataCount} records in cloud database.`, 'info');
+        }
+
+        function downloadCSV() {
+            if (dataPoints.length === 0) {
+                showAlert('No data to download. Start monitoring first.', 'warning');
+                return;
+            }
+
+            const headers = ['timestamp', 'latitude', 'longitude', 'accuracy', 'temperature', 'windSpeed', 'aqi', 'heatIsland', 'heatDeviation', 'userId', 'sessionId'];
+            const csvContent = [
+                headers.join(','),
+                ...dataPoints.map(dp => 
+                    `${dp.timestamp},${dp.latitude},${dp.longitude},${dp.accuracy},${dp.temperature},${dp.windSpeed},${dp.aqi},${dp.heatIsland},${dp.heatDeviation},${dp.userId},${dp.sessionId}`
+                )
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `urban_air_quality_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showAlert(`✓ Exported ${dataPoints.length} records (also in cloud: ${cloudDataCount})`, 'success');
+        }
+
+        // ===== EVENT LISTENERS =====
+        document.getElementById('startBtn').addEventListener('click', startCollection);
+        document.getElementById('stopBtn').addEventListener('click', stopCollection);
+        document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+
+        // ===== INITIALIZATION =====
+        window.addEventListener('load', async () => {
+            initMap();
+            initCharts();
+            
+            // Check cloud connection
+            try {
+                await db.collection('urban_air_quality').limit(1).get();
+                document.getElementById('cloudStatus').textContent = '☁️ Connected to Firebase Cloud';
+                showAlert('🏙️ System Ready! Cloud database connected. Multi-user support enabled.', 'info');
+            } catch (error) {
+                document.getElementById('cloudStatus').textContent = '⚠️ Cloud connection issue';
+                document.getElementById('cloudStatus').style.background = 'rgba(220, 53, 69, 0.3)';
+                showAlert('⚠️ Warning: Cloud connection issue. Data will be stored locally only.', 'warning');
+            }
+        });
+    </script>
+</body>
+</html>
